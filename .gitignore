@@ -1,0 +1,24 @@
+# venv
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# env
+.env
+.env.local
+
+# storage
+*.sqlite
+*.sqlite3
+chroma_db/
+
+# pytest
+.pytest_cache/
+
+# ide
+.idea/
+.vscode/*.local
+*.swp
