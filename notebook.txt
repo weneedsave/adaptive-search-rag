@@ -191,6 +191,11 @@ messages =[SystemMessage(content=SYSTEM_PROMPT),HumanMessage(content=question)]�
 
 最后返回Route,决定是否调用搜索api
 - Task8 generate 生成节点：拼接上下文 + 问题，调用 LLM 输出答案
+建generate文件,知识库问答助手
+enumerate 会**逐个取出：索引 + 元素**
+利用for循环依次取出enumerate(contexts)的内容,再join到context
+
+
 - Task9 graph 组装：搭建 LangGraph 图，配置条件分支
 - Task10 CLI 命令行 + SqliteSaver 会话记忆
 - Task11 边界优化 + README 文档
