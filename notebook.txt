@@ -196,6 +196,25 @@ enumerate 会**逐个取出：索引 + 元素**
 利用for循环依次取出enumerate(contexts)的内容,再join到context
 
 
+
+
+
+
 - Task9 graph 组装：搭建 LangGraph 图，配置条件分支
+ 1. StateGraph(RAGState) + add_node + add_edge 把 4个节点接起来
+ 2. add_conditional_edges 做条件路由：route节点出来后，根据 state["route"] 决定走 retrieve 还是search
+ 3. path_fn 的非法值兜底（spec §7）：LLM 偶尔输出"retrieval" 这种非法值，path_fn 里要 fallback 到retrieve，否则 conditional_edges 报错
+ 4. 两个分支汇合到 generate：add_edge("retrieve","generate") + add_edge("search", "generate")
+
+
+
+
+
+
+
+
+
+
+
 - Task10 CLI 命令行 + SqliteSaver 会话记忆
 - Task11 边界优化 + README 文档
