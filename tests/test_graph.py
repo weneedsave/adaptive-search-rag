@@ -32,3 +32,10 @@ def test_route_to_search_branch():
     state = {"question": "search", "route": "", "contexts": [], "answer": ""}
     result = g.invoke(state)
     assert result["answer"] == "回答：['联网搜索结果']"   # 走了 search 分支
+from adaptive_search_rag.graph import path_fn
+
+def test_path_fn_fallback_on_invalid_route():
+    # LLM 偶尔输出非法值（如 "retrieval"），path_fn 应归入 retrieve
+    assert path_fn({"route": "retrieval", "question": "", "contexts": [], "answer": ""}) == "retrieve"
+    assert path_fn({"route": "", "question": "", "contexts": [], "answer": ""}) == "retrieve"
+    assert path_fn({"route": "search", "question": "", "contexts": [], "answer": ""}) == "search"
