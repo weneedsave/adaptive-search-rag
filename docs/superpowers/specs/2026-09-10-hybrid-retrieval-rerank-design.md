@@ -146,8 +146,8 @@ def build_hybrid_retriever(vector_retriever, bm25, reranker):
     hybrid 只做编排，不负责建真实组件（它不知道 Chroma 配置）。"""
     def retriever(question: str, top_k: int = 3) -> list[str]:
         # 1. vector_retriever(question, VECTOR_K)   → rankings[0]
-        # 2. bm25(question, BM25_K)                 → rankings[1]
-        # 3. candidate = rrf_fuse(rankings)[:CANDIDATE_K]
+        # 2. bm25_retriever(question, BM25_K)       → rankings[1]
+        # 3. candidate = rrf_fuse(rankings, RRF_K)[:CANDIDATE_K]
         # 4. return reranker.rerank(question, candidate, top_k)   ← top_k 是入参，不是 CANDIDATE_K
     return retriever
 ```
