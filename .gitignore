@@ -22,3 +22,6 @@ chroma_db/
 .idea/
 .vscode/*.local
 *.swp
+
+# 本地笔记与设计草稿，仅保留在本地，不推送
+docs/
