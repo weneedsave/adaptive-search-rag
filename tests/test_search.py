@@ -2,7 +2,7 @@ from adaptive_search_rag.nodes.search import search_node
 
 
 def _state(question: str):
-    return {"question": question, "route": "", "contexts": [], "answer": ""}
+    return {"question": question, "contexts": [], "answer": ""}
 
 
 def test_search_returns_contexts():

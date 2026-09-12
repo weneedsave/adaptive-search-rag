@@ -12,7 +12,8 @@ def ask(question: str, thread_id: str = "default") -> str:
     with SqliteSaver.from_conn_string("checkpoints.sqlite") as checkpointer:
         app = build_graph(checkpointer=checkpointer)
         result = app.invoke(
-            {"question": question, "route": "", "contexts": [], "answer": ""},
+            {"question": question, "retrieval_query":"", "contexts": [],
+             "grade":"","retry_count":0,"answer":""},
             config={"configurable": {"thread_id": thread_id}},   # thread_id区分会话
         )
     return result["answer"]

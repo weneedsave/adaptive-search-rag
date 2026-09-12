@@ -85,6 +85,6 @@ def retrieve_node(state: RAGState, top_k: int = 3, retriever=None) -> dict:
     """检索节点：从混合检索取 top_k 片段，返回统一 {"contexts": [...]}"""
     if retriever is None:                 # 真实运行：造真的
         retriever = build_retriever()
-    question = state["question"]
+    question = state.get("retrieval_query") or state["question"]
     contexts = retriever(question, top_k)
     return {"contexts": contexts}

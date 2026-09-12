@@ -9,11 +9,11 @@ from adaptive_search_rag.nodes.retrieve import retrieve_node
 question = "什么是RAG"
 
 # 第一步：真实检索，拿到 contexts
-ret = retrieve_node({"question": question, "route": "", "contexts": [], "answer": ""})
+ret = retrieve_node({"question": question, "contexts": [], "answer": ""})
 print(f"检索到 {len(ret['contexts'])} 条上下文\n")
 
 # 第二步：真实生成，基于 contexts 生成答案
-state = {"question": question, "route": "", "contexts": ret["contexts"], "answer": ""}
+state = {"question": question, "contexts": ret["contexts"], "answer": ""}
 result = generate_node(state)
 
 print("=" * 60)

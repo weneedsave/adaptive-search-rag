@@ -2,7 +2,7 @@ from adaptive_search_rag.nodes.generate import generate_node
 
 
 def _state(question, contexts):
-    return {"question": question, "route": "", "contexts": contexts, "answer": ""}
+    return {"question": question, "contexts": contexts, "answer": ""}
 
 
 class _FakeLLM:

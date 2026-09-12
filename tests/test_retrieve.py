@@ -3,7 +3,7 @@ from adaptive_search_rag.nodes.retrieve import retrieve_node
 def _state(question: str):
     """构造RAGState格式的字典，模拟graph传进来的state"""
     # RAGState 运行时就是 dict，四个键都得有
-    return {"question": question, "route": "", "contexts": [], "answer": ""}
+    return {"question": question, "contexts": [], "answer": ""}
 def test_retrieve_returns_contexts():
     # fake_retriever：伪造检索器，不碰真实Chroma，直接返回写死的chunk
     def fake_retriever(question, top_k=3):
