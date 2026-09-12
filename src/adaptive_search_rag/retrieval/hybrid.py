@@ -1,4 +1,11 @@
-from collections import defaultdict#特殊字典key不存在会建一个而不是报错
+"""混合检索编排：RRF 融合 + 三组件串起来
+
+RRF 解决的核心问题：BM25 的分数是词频得分，向量检索是余弦相似度，
+量纲不同不能直接加权相加。RRF 只看【排名】不看【分数绝对值】，
+天然消除量纲差异，是工业标准做法。
+"""
+# defaultdict：key 不存在时自动建默认值，不会 KeyError
+from collections import defaultdict
 
 VECTOR_K = 10       # 向量粗筛召回数：粗筛要宽，避免漏
 BM25_K = 10         # BM25粗筛召回数：与向量对齐
