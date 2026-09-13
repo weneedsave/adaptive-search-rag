@@ -1,4 +1,3 @@
-# evaluation/tests/test_golden.py
 import json
 from evaluation.golden import (
     BLOCK_TYPES,
@@ -8,7 +7,6 @@ from evaluation.golden import (
     load_golden,
     validate_golden,
 )
-
 
 def _write(tmp_path, rows):
     p = tmp_path / "g.jsonl"
