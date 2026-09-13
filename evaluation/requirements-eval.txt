@@ -1,0 +1,16 @@
+# 评测环境专属依赖。
+# ⚠️ 禁止装进主 .venv —— 它会降级 openai / langchain-openai，打穿现有测试。
+# 装法见 docs/superpowers/plans/2026-09-13-ragas-eval.md 的 Task 1。
+ragas>=0.4.3
+
+# ⚠️ 必须显式降级，否则 ragas 根本 import 不了：
+#    ragas/llms/base.py 第 12-13 行无条件 import
+#        from langchain_community.chat_models.vertexai import ChatVertexAI
+#        from langchain_community.llms import VertexAI
+#    而 langchain-community 0.4.x 已把 VertexAI 集成整个移除
+#    （迁到独立的 langchain-google-vertexai 包），于是报
+#        ModuleNotFoundError: No module named 'langchain_community.chat_models.vertexai'
+#    实测 0.3.31 的 langchain-core 约束是宽松的，能跟 langchain-core 1.6.x 共存，
+#    只额外带进 5 个小包（dataclasses-json / marshmallow / mypy_extensions /
+#    typing-inspect），不会连带降级 langchain-core / langchain-openai / openai。
+langchain-community<0.4

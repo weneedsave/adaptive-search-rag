@@ -25,3 +25,8 @@ chroma_db/
 
 # 本地笔记与设计草稿，仅保留在本地，不推送
 docs/
+
+# 评测环境（独立 venv，见 docs/superpowers/specs/2026-09-13-ragas-eval-design.md）
+.venv-eval/
+*.egg-info/
+
