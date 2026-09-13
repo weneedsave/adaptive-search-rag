@@ -38,4 +38,5 @@ def build_eval_graph():
     不传 checkpointer：评测不写
     checkpoints.sqlite，也避免跨题状态污染。
     """
+    #调用作图,把联网函数替换成我们的虚假函数
     return build_graph(nodes={"search": partial(search_node, search_fn=stub_search_fn)})
