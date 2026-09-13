@@ -23,7 +23,9 @@ def main() -> None:
     """CLI：循环读问题 → ask → 打印答案"""
     # TODO2：Windows防止控制台中文乱码
     sys.stdout.reconfigure(encoding="utf-8")
-    # TODO3：循环交互，同一个thread_id维持会话记忆
+    # TODO3：循环交互。thread_id 走 checkpointer 做状态持久化（断点续跑），
+    # 但 state 里没有 messages 字段、也没有任何节点读对话历史，
+    # 所以当前不具备多轮对话能力（见 README 已知限制）
     print("RAG问答CLI，输入 exit / quit 退出")
     thread_id = "cli"
     while True:
