@@ -32,7 +32,18 @@ def build_judge_llm():
         api_key=os.getenv("DEEPSEEK_API_KEY"),
         base_url=os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     )
-    return llm_factory(os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"), client=client)
+    # 两个参数都不能省（均为 spec §8.6 实测结论）：
+    #   max_tokens：真实答案的 statement 提取会输出一长串原子命题，
+    #              默认上限和中等的 8192 都偶发撑爆，报 IncompleteOutputException
+    #   temperature：DeepSeek 是 MoE，temperature=0 **也不能完全消除**抖动，
+    #              但方向正确，且与 llm.py 的生产配置保持一致
+    # ⚠️ 裁判分数有 ±0.03 量级的固有噪声，小于 ~0.05 的差异不可当信号解读
+    return llm_factory(
+        os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash"),
+        client=client,
+        max_tokens=16384,
+        temperature=0,
+    )
 
 
 def build_embeddings():
@@ -148,7 +159,14 @@ run_case：CRAG 图跑完得到的结果字典（id、answer、contexts）
             # 1. metric_args：根据指标名字，拼装这个指标需要的参数字典args
             args = metric_args(metric_name, case, run_case)
             # 2. await metric_obj.ascore(**args)：调用裁判LLM打分，等待返回结果
-            metric_result = await metric_obj.ascore(**args)
+            # 单题单指标失败不该毁掉整轮（一轮十几分钟），失败记 None 并出声告警。
+            # 不静默吞掉：None 会在 report.summarize 里被跳过，不会当成 0 混进均值。
+            try:
+                metric_result = await metric_obj.ascore(**args)
+            except Exception as e:
+                print(f"[警告] {case_id} / {metric_name} 打分失败：{type(e).__name__}: {e}")
+                score_dict[metric_name] = None
+                continue
             # 3. metric_result是对象，metric_result.value取出0~1分数，存入当前题的分数字典
             score_dict[metric_name] = float(metric_result.value)
 
