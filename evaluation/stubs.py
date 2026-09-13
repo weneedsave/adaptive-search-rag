@@ -3,6 +3,7 @@ from functools import partial
 from adaptive_search_rag.graph import build_graph
 from adaptive_search_rag.nodes.search import search_node
 
+#模拟联网产生的结果
 STUB_MARKER = "[评测桩] 联网结果已省略"
 
 

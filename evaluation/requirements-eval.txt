@@ -14,3 +14,9 @@ ragas>=0.4.3
 #    只额外带进 5 个小包（dataclasses-json / marshmallow / mypy_extensions /
 #    typing-inspect），不会连带降级 langchain-core / langchain-openai / openai。
 langchain-community<0.4
+
+# ⚠️ RAGAS 的**隐式依赖**：TestsetGenerator 的 OverlapScoreBuilder 会 import rapidfuzz，
+#    但它没写进 ragas 自己的依赖声明。不装的话 generate_with_chunks 报
+#        ImportError: rapidfuzz is required for string distance
+#    （只在跑测试集生成时报，跑评测指标不需要。）
+rapidfuzz
