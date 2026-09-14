@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime
@@ -146,7 +147,8 @@ def run_all(cases, app, llm=None, emb=None) -> dict:
     return {
         "run_id": run_id,
         "git_commit": git_commit,
-        "config": {"reranker": "cross-encoder", "top_k": 3},
+        # 记录真实生效的配置 —— 硬编码会让两份 run 的对比失去意义
+        "config": {"reranker": os.getenv("RERANKER", "cross"), "top_k": 3},
         "cases": run_cases,
         "summary": summarize(run_cases),
     }

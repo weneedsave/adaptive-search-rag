@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 import chromadb
 from chromadb.utils import embedding_functions
@@ -70,7 +71,20 @@ def build_retriever():
 
 #重排,两种检索完成后使用模型进行仔细重排
 def _build_reranker():
-    """加载 CrossEncoder；失败则降级 NoOpReranker（保住 RRF 顺序，链路不断）"""
+    """加载 CrossEncoder；失败则降级 NoOpReranker（保住 RRF 顺序，链路不断）
+
+    环境变量 RERANKER 可强制跳过精排，用于评测对比（精排占端到端 99.6% 耗时）：
+      cross（默认） → CrossEncoderReranker
+      noop          → NoOpReranker，直接沿用 RRF 融合顺序
+    """
+    mode = os.getenv("RERANKER", "cross").strip().lower()
+
+    if mode == "noop":
+        print("[配置] RERANKER=noop —— 跳过 CrossEncoder，沿用 RRF 顺序")
+        return NoOpReranker()
+    if mode != "cross":
+        print(f"[警告] 未知的 RERANKER={mode!r}，按 cross 处理")
+
     # CrossEncoderReranker为懒加载：实例化对象本身不加载大模型
     reranker = CrossEncoderReranker()
     try:
