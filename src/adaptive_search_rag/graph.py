@@ -37,6 +37,11 @@ def should_act(state: RAGState) -> str:
 def build_graph(checkpointer=None, nodes=None):
     n = nodes or {}
     # 移除 route，只保留5个节点
+    # if "retrieve" in n:
+    #     retrieve = n["retrieve"]
+    # else:
+    #     retrieve = retrieve_node
+
     retrieve = n.get("retrieve", retrieve_node)
     evaluate = n.get("evaluate", evaluate_node)
     rewrite = n.get("rewrite", rewrite_query_node)

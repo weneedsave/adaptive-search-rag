@@ -132,8 +132,13 @@ python scripts/verify_evaluate.py
 ## 🧪 运行单元测试
 
 ```bash
-pytest -v
+pytest -v                                                     # 主测试套件（52 个）
+.venv-eval/Scripts/python.exe -m pytest evaluation/tests -q    # 评测套件（37 个）
 ```
+
+> 评测套件放在 `evaluation/tests/` 而非 `tests/`：它依赖 RAGAS，而 RAGAS 只装在
+> `.venv-eval` 里。放进 `tests/` 会让主 `.venv` 的 `pytest` 因 import 失败而报错，
+> 把 52 个测试的基线一起打破。
 
 > 绝大多数测试通过依赖注入假节点 / mock 掉网络，无需真实 LLM、向量库、网络，快速验证逻辑。
 > 例外：`test_ingest_directory` 会真实加载本地 embedding 模型（约 20s）。
@@ -252,13 +257,15 @@ Cross-Encoder 把 `[query, doc]` 拼成一对送进模型做深度交互，准�
 ## ❓ 常见问题
 
 1. Windows 控制台中文乱码：代码内置 `sys.stdout.reconfigure(encoding="utf-8")` 自动处理。
-2. 清空所有对话记忆：删除项目里的 `checkpoints.sqlite` 文件。
+2. 重置会话状态：删除项目里的 `checkpoints.sqlite`。注意当前**并不存在多轮对话记忆**
+   （见「已知限制」），该文件存的是图执行状态，不是对话历史。
 3. 单元测试大多不依赖 `.env`（用假节点）；仅 `test_ingest_directory` 需本地有 embedding 模型缓存。
 
 ## 📈 阶段 2 进展
 
 - ✅ **混合检索 + 精排**：BM25（稀疏）+ 向量（稠密）→ RRF 融合 → CrossEncoder 重排。
 - ✅ **CRAG 自适应检索**：先检索 → 三档评估 → 质量不足才触发联网（见上方「核心流程」）。
+- ✅ **RAGAS 评测**：13 题四类评测集 + 质量/行为双轨指标，可复现、可与基线对比（见下方「📊 评测」）。
 
 ### 实测（真实 LLM + 真实混合检索 + 真实联网）
 
@@ -276,11 +283,78 @@ Cross-Encoder 把 `[query, doc]` 拼成一对送进模型做深度交互，准�
 ### 待办
 
 - **统一加载层**：PyMuPDF 支持 PDF/Markdown/文本，保留页码元数据用于答案溯源。
-- **评测**：RAGAS 评测召回率、答案忠实度、相关性——「没量化 = 没做」。
 - **实时类问题的前置门**：见上方「架构演进」，用不需要 LLM 的关键词筛省掉那 17s。
+- **用评测验证精排的取舍**：精排占端到端耗时 99.6%，但「值不值这 5.4 秒」尚未用数据回答。
+
+## 📊 评测
+
+`evaluation/` 提供可复现的评测子系统。**独立 `.venv-eval` 虚拟环境**，评测依赖（RAGAS 及会降级
+`openai`/`langchain-openai` 的包）与运行时依赖彻底隔离，主 `.venv` 零改动。
+
+### 两类指标分开算
+
+| | 质量指标 | 行为指标 |
+| --- | --- | --- |
+| 指标 | RAGAS：faithfulness / answer_relevancy / context_precision / context_recall | `grade` 分布、`retry_count`、路由符合率 |
+| 适用 | 只对**语料内且没走联网分支**的题 | 全部题目 |
+
+**为什么必须分开**：超纲题与走联网分支的题，其 `contexts` 被**联网桩**替换过
+（评测不真联网，否则结果每天变、不可复现）。用 RAGAS 评它们的答案质量，
+**评的是桩不是系统**。这类题要评的是「路由对不对」，不是「答得好不好」。
+
+### 评测集（`evaluation/datasets/golden.jsonl`）
+
+| type | 测什么 | 数量 |
+| --- | --- | --- |
+| `kb` | 语料内能答 | 6 |
+| `kb-hard` | 答案跨 chunk，需 RRF 融合与精排 | 2 |
+| `oob` | 语料外超纲，测拒答与 CRAG 路由 | 3 |
+| `rewrite` | 口语化问法，测 query 改写 | 2 |
+
+### 跑法
+
+```bash
+bash evaluation/run.sh              # 完整评测（含 RAGAS 打分）
+bash evaluation/run.sh --no-llm     # 只跑行为指标，快且免费
+```
+
+结果落盘 `evaluation/runs/<时间戳>.json`（含 git commit，保证可追溯），
+`--compare A.json B.json` 可对比两份 run。
+
+### 基线（2026-09-14，commit 见 run 文件）
+
+| type | n | scored | 路由符合率 | faithfulness | answer_relevancy | ctx_precision | ctx_recall |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| kb | 6 | 6 | 1.00 | 0.97 | 0.99 | 1.00 | 1.00 |
+| kb-hard | 2 | 1 | 0.50 | 0.97 | 0.89 | 1.00 | 1.00 |
+| oob | 3 | 0 | 1.00 | — | — | — | — |
+| rewrite | 2 | 2 | 1.00 | 0.96 | 0.66 | 1.00 | 1.00 |
+| **OVERALL** | | **9** | | **0.96** | **0.90** | **1.00** | **1.00** |
+
+- `scored` = 该题型中实际参与质量分的题数。`kb-hard` 的 2 道里只有 1 道计入——
+  `kbh-02` 被判 `ambiguous` 走了联网分支，质量分不可解释，如实排除而非静默丢弃。
+- `kb-hard` 路由符合率 0.50：`kbh-02` 一题两问（分类 + 执行模式），检索只覆盖其中一问，
+  被正确判为 `ambiguous`。**这是 CRAG 在正常工作**，也暴露了「一题多问」对评估节点的敏感性。
+
+> ⚠️ **裁判 LLM 有 ±0.03 量级的固有噪声**：实测同一输入连跑 3 次得到
+> 0.9655 / 0.9583 / 0.9333，且**设 `temperature=0` 也无法消除**（DeepSeek 为 MoE 模型，
+> 专家路由存在浮点非结合性）。
+>
+> **因此：任何小于 ~0.05 的分数差异都不能当信号解读。**
+>
+> ⚠️ **这是 13 条的小规模开发集，用于快速回归，不是 benchmark。**
+
+## 📝 已知限制
 
 ## 📝 已知限制
 
 - **精排耗时长**：CPU 上单次检索约 5~6 秒，瓶颈在 CrossEncoder 对 500 字符 chunk 的推理。可行的优化方向：换更小的 reranker（如 `bge-reranker-base`，278M）、只取 chunk 前 N 个 token 送精排、或改用 GPU。
 - **BM25 索引在内存**：启动时从 Chroma 全量拉取语料建索引。当前 15 个 chunk 无影响，大语料需改分页拉取或索引落盘。
 - **中文停用词未处理**：已过滤空白和纯标点，但「什么」「的」这类高频功能词的 IDF 干扰仍在。改写节点（`rewrite.py`）从**查询侧**缓解了它——把疑问句压成名词短语，疑问词自然消失；但**语料侧**的功能词干扰仍在，可引入停用词表进一步优化。
+- **不具备多轮对话能力**：`main.py` 用 `SqliteSaver` + 固定 `thread_id`，checkpointer 确实在持久化状态，
+  但 `state.py` 里**没有 `messages` 字段，也没有任何节点读取对话历史**——`generate` 只读
+  `state["question"]` 和 `contexts`。所以「记住上一轮说了什么」目前**做不到**，
+  `thread_id` 的作用仅限于状态持久化与断点续跑。要做多轮需在 state 中引入消息历史，
+  并让 `generate` 读取它。
+- **评测裁判存在噪声地板**：见上方「📊 评测」，±0.03 量级且无法消除，
+  解读分数差异时必须先跨过这个门槛。
