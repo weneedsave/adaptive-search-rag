@@ -97,3 +97,13 @@ def test_scored_is_zero_for_oob():
     assert s["by_type"]["oob"]["n"] == 1
     assert s["by_type"]["oob"]["scored"] == 0
     assert "faithfulness" not in s["by_type"]["oob"]
+
+
+def test_quality_eligible_excludes_error_cases():
+    """跑图失败的题（grade=error）根本没跑起来，谈不上质量。"""
+    cases = [_c("kb-01", "kb", {"faithfulness": 1.0}, branch_actual="generate"),
+             {**_c("kb-02", "kb", None), "grade": "error"}]
+    s = summarize(cases)
+    assert s["by_type"]["kb"]["n"] == 2
+    assert s["by_type"]["kb"]["scored"] == 1
+    assert s["by_type"]["kb"]["faithfulness"] == 1.0

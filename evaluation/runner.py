@@ -41,24 +41,64 @@ def detect_branch(state: dict, contexts: list[str]) -> str:
     return "generate"
 
 
-def run_case(case, app) -> dict:
-    # 合并初始状态，注入当前问题
-    #处理一道评测题目，跑一遍 CRAG，收集所有运行信息，打包成一条结果记录返回
-    state = {**INITIAL_STATE, "question": case.question}
-    result = app.invoke(state)
-    branch_actual = detect_branch(result, result.get("contexts", []))
+MAX_RUN_ATTEMPTS = 3
+
+
+def _failed_case(case, err) -> dict:
+    """跑图彻底失败时的占位记录。
+
+    grade="error" 会被 report.is_quality_eligible 排除出质量分 ——
+    没跑起来的题，没有任何可解释的分数。
+    """
     return {
         "id": case.id,
         "type": case.type,
         "question": case.question,
-        "answer": result["answer"],
-        "contexts": result.get("contexts", []),
-        "grade": result.get("grade", ""),
-        "retry_count": result.get("retry_count", 0),
-        "branch_actual": branch_actual,
+        "answer": "",
+        "contexts": [],
+        "grade": "error",
+        "retry_count": 0,
+        "branch_actual": None,
         "branch_expected": case.expect_branch,
-        "scores": {}
+        "scores": {},
+        "error": f"{type(err).__name__}: {err}",
     }
+
+
+def run_case(case, app, max_attempts: int = MAX_RUN_ATTEMPTS) -> dict:
+    """处理一道评测题目，跑一遍 CRAG，收集所有运行信息，打包成一条结果记录返回。
+
+    网络抖动是常态（国内 + 代理，一轮要调上百次 LLM），所以单题重试。
+    **重试耗尽不抛异常**，返回一条 grade="error" 的占位记录让整轮继续 ——
+    否则一次连接错误就废掉 20-40 分钟的一整轮。
+    """
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            # 合并初始状态，注入当前问题
+            state = {**INITIAL_STATE, "question": case.question}
+            result = app.invoke(state)
+        except Exception as e:
+            last_err = e
+            print(f"[警告] {case.id} 第 {attempt}/{max_attempts} 次跑图失败：{type(e).__name__}: {e}")
+            continue
+
+        branch_actual = detect_branch(result, result.get("contexts", []))
+        return {
+            "id": case.id,
+            "type": case.type,
+            "question": case.question,
+            "answer": result["answer"],
+            "contexts": result.get("contexts", []),
+            "grade": result.get("grade", ""),
+            "retry_count": result.get("retry_count", 0),
+            "branch_actual": branch_actual,
+            "branch_expected": case.expect_branch,
+            "scores": {}
+        }
+
+    print(f"[警告] {case.id} 重试 {max_attempts} 次仍失败，记为 error 并继续")
+    return _failed_case(case, last_err)
 
 
 def run_all(cases, app, llm=None, emb=None) -> dict:
@@ -74,8 +114,12 @@ def run_all(cases, app, llm=None, emb=None) -> dict:
        config 先硬编码 {"reranker": "cross-encoder", "top_k": 3}
     """
     #`cases` 就是我们自己手动编写的评测题库
-    # 1. 遍历所有样例，逐个跑CRAG图
-    run_cases = [run_case(c, app) for c in cases]
+    # 1. 遍历所有样例，逐个跑CRAG图。
+    # 打印进度并 flush —— 一轮 20-40 分钟，没有进度输出等于黑盒
+    run_cases = []
+    for i, c in enumerate(cases, 1):
+        print(f"[{i}/{len(cases)}] 跑图：{c.id} ({c.type}) ...", flush=True)
+        run_cases.append(run_case(c, app))
 
     # 2. llm不为None才执行RAGAS打分
     #执行完这一段，run_cases 里面每一条记录的`scores`就填充上 RAGAS 分数了

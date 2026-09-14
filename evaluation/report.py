@@ -7,15 +7,19 @@ from evaluation.golden import QUALITY_TYPES
 def is_quality_eligible(case: dict) -> bool:
     """判断这道题的质量分是否可解释。
 
-    两个条件缺一不可（spec §6）：
+    三个条件缺一不可（spec §6）：
       1. type ∈ QUALITY_TYPES —— oob 注定走 search，本来就不该算
       2. branch_actual != "search" —— 走 search 的题，contexts 被桩替换过，
          质量分评的是桩，不是你的系统
+      3. grade != "error" —— 跑图彻底失败的题（见 runner._failed_case），
+         根本没跑起来，谈不上质量
 
     branch_actual 缺失时（老档案、或没跑过图的构造数据）视为合格，
     不做排除，避免误伤 —— 这是 .get 而不是下标访问的原因。
     """
     if case.get("type") not in QUALITY_TYPES:
+        return False
+    if case.get("grade") == "error":
         return False
     return case.get("branch_actual") != "search"
 
